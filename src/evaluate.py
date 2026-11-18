@@ -1,10 +1,12 @@
-"""Part 2b: evaluate the CNN against simple baselines on the test set.
+"""Part 2b: evaluate the CNNs against simple baselines on the test set.
 
 Baselines:
   - majority class: always guess the most common training region
   - logistic regression on 28x28 downsampled pixels
+CNNs: every trained checkpoint in results/ (small, deep).
 
-Writes results/metrics.json, results/RESULTS.md and results/confusion_matrix.png.
+Writes results/metrics.json, results/RESULTS.md and
+results/confusion_matrix.png (for the best CNN).
 
 Run:  python -m src.evaluate
 """
@@ -19,9 +21,9 @@ import torch.nn.functional as F
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import confusion_matrix
 
-from .config import CATEGORIES, MODEL_PATH, RESULTS_DIR, SEED
+from .config import CATEGORIES, RESULTS_DIR, SEED, model_path
 from .data import batches, load
-from .model import RegionCNN
+from .model import MODELS
 from .regions import REGIONS
 from .train import device
 
@@ -38,10 +40,10 @@ def small_pixels(images, idx):
 
 
 @torch.no_grad()
-def cnn_predict(images, labels, idx):
+def cnn_predict(name, images, labels, idx):
     dev = device()
-    model = RegionCNN().to(dev)
-    model.load_state_dict(torch.load(MODEL_PATH, map_location=dev))
+    model = MODELS[name]().to(dev)
+    model.load_state_dict(torch.load(model_path(name), map_location=dev))
     model.eval()
     probs = []
     for x, _ in batches(images, labels, idx, 512):
@@ -49,49 +51,21 @@ def cnn_predict(images, labels, idx):
     return np.concatenate(probs)
 
 
-def main():
-    images, meta = load()
-    y, obj = meta["region"], meta["object"]
-    train, test = meta["train"], meta["test"]  # already sorted, so batch order == idx order
-    y_test = y[test]
-
-    # Majority class
-    majority = np.bincount(y[train]).argmax()
-    acc_major = float((y_test == majority).mean())
-
-    # Logistic regression on pixels
-    rng = np.random.default_rng(SEED)
-    lr_idx = np.sort(rng.choice(train, min(LOGREG_TRAIN, len(train)), replace=False))
-    print(f"Fitting logistic regression on {len(lr_idx)} drawings ...", flush=True)
-    logreg = LogisticRegression(max_iter=300)
-    logreg.fit(small_pixels(images, lr_idx), y[lr_idx])
-    acc_logreg = float((logreg.predict(small_pixels(images, test)) == y_test).mean())
-
-    # CNN
-    probs = cnn_predict(images, y, test)
+def cnn_metrics(probs, y_test, obj_test):
     pred = probs.argmax(1)
-    acc_cnn = float((pred == y_test).mean())
-    top3 = float((np.argsort(-probs, 1)[:, :3] == y_test[:, None]).any(1).mean())
-
-    per_region = {r: float((pred[y_test == i] == i).mean()) for i, r in enumerate(REGIONS)}
-    per_object = {c: float((pred[obj[test] == i] == y_test[obj[test] == i]).mean())
-                  for i, c in enumerate(CATEGORIES)}
-    cm = confusion_matrix(y_test, pred, labels=range(len(REGIONS)), normalize="true")
-
-    metrics = {
-        "test_size": int(len(test)),
-        "chance": 1 / len(REGIONS),
-        "majority_class": acc_major,
-        "logistic_regression": acc_logreg,
-        "cnn": acc_cnn,
-        "cnn_top3": top3,
-        "cnn_per_region": per_region,
-        "cnn_per_object": per_object,
-        "confusion_matrix": cm.round(4).tolist(),
+    return {
+        "accuracy": float((pred == y_test).mean()),
+        "top3": float((np.argsort(-probs, 1)[:, :3] == y_test[:, None]).any(1).mean()),
+        "per_region": {r: float((pred[y_test == i] == i).mean()) for i, r in enumerate(REGIONS)},
+        "per_object": {c: float((pred[obj_test == i] == y_test[obj_test == i]).mean())
+                       for i, c in enumerate(CATEGORIES)},
+        "confusion_matrix": confusion_matrix(
+            y_test, pred, labels=range(len(REGIONS)), normalize="true").round(4).tolist(),
     }
-    (RESULTS_DIR / "metrics.json").write_text(json.dumps(metrics, indent=2))
 
-    # Confusion matrix plot
+
+def plot_confusion(cm, name):
+    cm = np.array(cm)
     fig, ax = plt.subplots(figsize=(7, 6))
     ax.imshow(cm, cmap="Greys", vmin=0, vmax=cm.max())
     ax.set_xticks(range(len(REGIONS)), REGIONS, rotation=45, ha="right", fontsize=8)
@@ -102,39 +76,75 @@ def main():
                     color="white" if cm[i, j] > cm.max() / 2 else "black")
     ax.set_xlabel("Predicted region")
     ax.set_ylabel("True region")
-    ax.set_title("CNN confusion matrix (test set, % of each row)")
+    ax.set_title(f"{name} CNN confusion matrix (test set, % of each row)")
     fig.tight_layout()
     fig.savefig(RESULTS_DIR / "confusion_matrix.png", dpi=150)
 
-    # Markdown summary
+
+def main():
+    images, meta = load()
+    y, obj = meta["region"], meta["object"]
+    train, test = meta["train"], meta["test"]  # already sorted, so batch order == idx order
+    y_test, obj_test = y[test], obj[test]
+
+    majority = np.bincount(y[train]).argmax()
+    acc_major = float((y_test == majority).mean())
+
+    rng = np.random.default_rng(SEED)
+    lr_idx = np.sort(rng.choice(train, min(LOGREG_TRAIN, len(train)), replace=False))
+    print(f"Fitting logistic regression on {len(lr_idx)} drawings ...", flush=True)
+    logreg = LogisticRegression(max_iter=300)
+    logreg.fit(small_pixels(images, lr_idx), y[lr_idx])
+    acc_logreg = float((logreg.predict(small_pixels(images, test)) == y_test).mean())
+
+    cnns = {name: cnn_metrics(cnn_predict(name, images, y, test), y_test, obj_test)
+            for name in MODELS if model_path(name).exists()}
+    best = max(cnns, key=lambda n: cnns[n]["accuracy"])
+    plot_confusion(cnns[best]["confusion_matrix"], best)
+
+    metrics = {
+        "test_size": int(len(test)),
+        "chance": 1 / len(REGIONS),
+        "majority_class": acc_major,
+        "logistic_regression": acc_logreg,
+        "cnn": cnns,
+        "best_cnn": best,
+    }
+    (RESULTS_DIR / "metrics.json").write_text(json.dumps(metrics, indent=2))
+
+    names = list(cnns)
+    header = "| " + " | ".join(f"{n} CNN" for n in names) + " |"
+    rule = "|---" * len(names) + "|"
     lines = [
-        "# Results (Part 2: initial CNN, complete drawings)",
+        "# Results (Part 2: CNNs on complete drawings)",
         "",
         f"Test set: {len(test):,} drawings not seen in training, balanced over "
         f"{len(REGIONS)} regions (chance = {1 / len(REGIONS):.1%}).",
         "",
-        "| Method | Region accuracy |",
-        "|---|---|",
-        f"| Always guess most common region | {acc_major:.1%} |",
-        f"| Logistic regression (28x28 pixels) | {acc_logreg:.1%} |",
-        f"| **CNN** | **{acc_cnn:.1%}** (top-3: {top3:.1%}) |",
+        "| Method | Region accuracy | Top-3 |",
+        "|---|---|---|",
+        f"| Always guess most common region | {acc_major:.1%} | |",
+        f"| Logistic regression (28x28 pixels) | {acc_logreg:.1%} | |",
+        *[f"| {n} CNN | {m['accuracy']:.1%} | {m['top3']:.1%} |" for n, m in cnns.items()],
         "",
         "## CNN accuracy by true region",
         "",
-        "| Region | Accuracy |",
-        "|---|---|",
-        *[f"| {r} | {a:.1%} |" for r, a in per_region.items()],
+        "| Region " + header,
+        "|---" + rule,
+        *[f"| {r} | " + " | ".join(f"{cnns[n]['per_region'][r]:.1%}" for n in names) + " |"
+          for r in REGIONS],
         "",
         "## CNN accuracy by object",
         "",
-        "| Object | Accuracy |",
-        "|---|---|",
-        *[f"| {c} | {a:.1%} |" for c, a in sorted(per_object.items(), key=lambda kv: -kv[1])],
+        "| Object " + header,
+        "|---" + rule,
+        *[f"| {c} | " + " | ".join(f"{cnns[n]['per_object'][c]:.1%}" for n in names) + " |"
+          for c in sorted(CATEGORIES, key=lambda c: -cnns[best]["per_object"][c])],
         "",
-        "Confusion matrix: `confusion_matrix.png`. Example drawings: `samples.png`.",
+        f"Confusion matrix ({best} CNN): `confusion_matrix.png`. Example drawings: `samples.png`.",
     ]
     (RESULTS_DIR / "RESULTS.md").write_text("\n".join(lines) + "\n")
-    print("\n".join(lines[4:9]))
+    print("\n".join(lines[4:9 + len(names)]))
 
 
 if __name__ == "__main__":

@@ -1,9 +1,10 @@
 """Part 2a: train the CNN to predict region from a complete drawing.
 
-Keeps the checkpoint with the best validation accuracy in results/cnn.pt and
-the per-epoch history in results/history.json.
+Keeps the checkpoint with the best validation accuracy in results/cnn_<model>.pt
+and the per-epoch history in results/history_<model>.json.
 
-Run:  python -m src.train [--epochs 10]
+Run:  python -m src.train --model small --epochs 10
+      python -m src.train --model deep --epochs 25
 """
 import argparse
 import json
@@ -13,9 +14,9 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from .config import MODEL_PATH, RESULTS_DIR, SEED
+from .config import RESULTS_DIR, SEED, model_path
 from .data import batches, load
-from .model import RegionCNN
+from .model import MODELS
 
 
 def device():
@@ -33,6 +34,7 @@ def accuracy(model, images, labels, idx, dev):
 
 def main():
     ap = argparse.ArgumentParser()
+    ap.add_argument("--model", choices=MODELS, default="deep")
     ap.add_argument("--epochs", type=int, default=10)
     ap.add_argument("--batch-size", type=int, default=256)
     ap.add_argument("--lr", type=float, default=1e-3)
@@ -44,8 +46,8 @@ def main():
     images, meta = load()
     labels = meta["region"]
 
-    model = RegionCNN().to(dev)
-    print(f"device={dev}  params={sum(p.numel() for p in model.parameters()):,}  "
+    model = MODELS[args.model]().to(dev)
+    print(f"model={args.model}  device={dev}  params={sum(p.numel() for p in model.parameters()):,}  "
           f"train={len(meta['train'])}  val={len(meta['val'])}")
     opt = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=1e-4)
     sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, args.epochs)
@@ -71,13 +73,13 @@ def main():
         mark = ""
         if val_acc > best:
             best = val_acc
-            torch.save(model.state_dict(), MODEL_PATH)
+            torch.save(model.state_dict(), model_path(args.model))
             mark = "  (saved)"
         print(f"epoch {epoch:2d}  loss {train_loss:.4f}  val acc {val_acc:.2%}  "
               f"{time.time() - t0:.0f}s{mark}", flush=True)
 
     RESULTS_DIR.mkdir(exist_ok=True)
-    (RESULTS_DIR / "history.json").write_text(json.dumps(history, indent=2))
+    (RESULTS_DIR / f"history_{args.model}.json").write_text(json.dumps(history, indent=2))
     print(f"Best val accuracy: {best:.2%}")
 
 

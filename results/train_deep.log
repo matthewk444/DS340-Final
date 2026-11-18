@@ -1,0 +1,27 @@
+model=deep  device=mps  params=2,215,433  train=98208  val=12276
+epoch  1  loss 2.2134  val acc 12.44%  99s  (saved)
+epoch  2  loss 2.1920  val acc 12.64%  92s  (saved)
+epoch  3  loss 2.1888  val acc 13.70%  95s  (saved)
+epoch  4  loss 2.1859  val acc 14.04%  112s  (saved)
+epoch  5  loss 2.1841  val acc 12.90%  103s
+epoch  6  loss 2.1821  val acc 12.69%  107s
+epoch  7  loss 2.1802  val acc 14.21%  108s  (saved)
+epoch  8  loss 2.1783  val acc 14.03%  101s
+epoch  9  loss 2.1762  val acc 13.07%  105s
+epoch 10  loss 2.1716  val acc 14.30%  102s  (saved)
+epoch 11  loss 2.1671  val acc 14.82%  117s  (saved)
+epoch 12  loss 2.1615  val acc 12.90%  160s
+epoch 13  loss 2.1549  val acc 15.22%  159s  (saved)
+epoch 14  loss 2.1480  val acc 16.23%  161s  (saved)
+epoch 15  loss 2.1369  val acc 16.46%  139s  (saved)
+epoch 16  loss 2.1282  val acc 16.46%  107s
+epoch 17  loss 2.1160  val acc 17.22%  105s  (saved)
+epoch 18  loss 2.0994  val acc 17.68%  102s  (saved)
+epoch 19  loss 2.0822  val acc 17.69%  103s  (saved)
+epoch 20  loss 2.0581  val acc 18.34%  102s  (saved)
+epoch 21  loss 2.0305  val acc 18.00%  106s
+epoch 22  loss 2.0043  val acc 18.19%  108s
+epoch 23  loss 1.9795  val acc 18.12%  106s
+epoch 24  loss 1.9632  val acc 18.17%  104s
+epoch 25  loss 1.9545  val acc 18.17%  103s
+Best val accuracy: 18.34%

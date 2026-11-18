@@ -41,10 +41,21 @@ python3 -m venv .venv
 
 ## Model
 
-`src/model.py`: three conv blocks (conv → batch norm → ReLU → max pool; 32, 64, 128 filters),
-then a 256-unit layer with dropout 0.4 and a 9-way output. Input is a 64×64 grayscale image.
-Trained with Adam, cosine learning-rate schedule, 10 epochs; the checkpoint with the best
-validation accuracy is kept.
+Two CNNs in `src/model.py` (input: 64×64 grayscale image, output: 9 regions):
+
+| Model | Layers | Filters | Params |
+|---|---|---|---|
+| `small` | 3 conv blocks, 1 conv each | 32, 64, 128 | 0.6M |
+| `deep` | 4 conv blocks, 2 convs each after the first (7 convs) | 32, 64, 128, 256 | 2.2M |
+
+Each block is conv → batch norm → ReLU (repeated) → max pool. Both end in a 256-unit
+layer with dropout 0.4. Trained with Adam and a cosine learning-rate schedule; the
+checkpoint with the best validation accuracy is kept.
+
+```bash
+.venv/bin/python -m src.train --model small --epochs 10
+.venv/bin/python -m src.train --model deep --epochs 25   # ~90 s/epoch on an M-series Mac
+```
 
 ## Results
 

@@ -4,7 +4,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = ROOT / "data"
 RESULTS_DIR = ROOT / "results"
-MODEL_PATH = ROOT / "results" / "cnn.pt"
+
+
+def model_path(name):
+    return RESULTS_DIR / f"cnn_{name}.pt"
+
 
 # Objects whose drawing style plausibly differs between countries.
 CATEGORIES = [
