@@ -1,4 +1,4 @@
-"""Part 2b: evaluate the CNNs against simple baselines on the test set.
+"""Part 2b: evaluate the region CNNs (and the object CNN) against simple baselines on the test set.
 
 Baselines:
   - majority class: always guess the most common training region
@@ -40,10 +40,11 @@ def small_pixels(images, idx):
 
 
 @torch.no_grad()
-def cnn_predict(name, images, labels, idx):
+def cnn_predict(name, images, labels, idx, target="region"):
     dev = device()
-    model = MODELS[name]().to(dev)
-    model.load_state_dict(torch.load(model_path(name), map_location=dev))
+    n_classes = len(REGIONS) if target == "region" else len(CATEGORIES)
+    model = MODELS[name](n_classes).to(dev)
+    model.load_state_dict(torch.load(model_path(name, target), map_location=dev))
     model.eval()
     probs = []
     for x, _ in batches(images, labels, idx, 512):
@@ -110,6 +111,23 @@ def main():
         "cnn": cnns,
         "best_cnn": best,
     }
+
+    # Object recognition CNN (what is drawn), if trained
+    object_lines = []
+    if model_path("small", "object").exists():
+        obj_pred = cnn_predict("small", images, obj, test, "object").argmax(1)
+        metrics["object_cnn"] = {
+            "accuracy": float((obj_pred == obj_test).mean()),
+            "per_object": {c: float((obj_pred[obj_test == i] == i).mean())
+                           for i, c in enumerate(CATEGORIES)},
+        }
+        object_lines = [
+            "",
+            "## Object recognition (small CNN, what is drawn)",
+            "",
+            f"Test accuracy: **{metrics['object_cnn']['accuracy']:.1%}** "
+            f"over {len(CATEGORIES)} objects (chance = {1 / len(CATEGORIES):.0%}).",
+        ]
     (RESULTS_DIR / "metrics.json").write_text(json.dumps(metrics, indent=2))
 
     names = list(cnns)
@@ -140,6 +158,8 @@ def main():
         "|---" + rule,
         *[f"| {c} | " + " | ".join(f"{cnns[n]['per_object'][c]:.1%}" for n in names) + " |"
           for c in sorted(CATEGORIES, key=lambda c: -cnns[best]["per_object"][c])],
+        "",
+        *object_lines,
         "",
         f"Confusion matrix ({best} CNN): `confusion_matrix.png`. Example drawings: `samples.png`.",
     ]

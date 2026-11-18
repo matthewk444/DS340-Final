@@ -38,4 +38,9 @@ Test set: 12,276 drawings not seen in training, balanced over 9 regions (chance 
 | car | 16.7% | 16.5% |
 | mailbox | 16.9% | 15.9% |
 
+
+## Object recognition (small CNN, what is drawn)
+
+Test accuracy: **97.0%** over 10 objects (chance = 10%).
+
 Confusion matrix (deep CNN): `confusion_matrix.png`. Example drawings: `samples.png`.

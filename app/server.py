@@ -13,16 +13,22 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-from src.config import RESULTS_DIR, model_path
+from src.config import CATEGORIES, RESULTS_DIR, model_path
 from src.model import MODELS
 from src.regions import REGIONS
 from src.render import normalize, render
 
-MODEL_NAME = "deep"
+MODEL_NAME = "deep"  # region model shown on the page
 
-model = MODELS[MODEL_NAME]()
-model.load_state_dict(torch.load(model_path(MODEL_NAME), map_location="cpu"))
-model.eval()
+
+def load_model(name, target, n_classes):
+    m = MODELS[name](n_classes)
+    m.load_state_dict(torch.load(model_path(name, target), map_location="cpu"))
+    return m.eval()
+
+
+region_model = load_model(MODEL_NAME, "region", len(REGIONS))       # where the drawer is from
+object_model = load_model("small", "object", len(CATEGORIES))       # what is drawn
 
 app = FastAPI()
 HERE = Path(__file__).parent
@@ -55,6 +61,7 @@ def metrics():
         "logistic_regression": full["logistic_regression"],
         "cnn": {n: {k: v[k] for k in ("accuracy", "top3", "per_region")}
                 for n, v in full["cnn"].items()},
+        "object_accuracy": full.get("object_cnn", {}).get("accuracy"),
     }
 
 
@@ -66,5 +73,7 @@ def predict(d: Drawing):
     img = render(normalize(strokes))
     x = torch.from_numpy(img).float().div(255).view(1, 1, *img.shape)
     with torch.no_grad():
-        probs = torch.softmax(model(x), 1)[0].tolist()
-    return {"regions": REGIONS, "probs": probs}
+        region_probs = torch.softmax(region_model(x), 1)[0].tolist()
+        object_probs = torch.softmax(object_model(x), 1)[0].tolist()
+    return {"regions": REGIONS, "probs": region_probs,
+            "objects": CATEGORIES, "object_probs": object_probs}

@@ -41,9 +41,10 @@
   }
   button:hover { background: #f0f0ef; }
 
+  .guesses { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
   .guess-label { color: var(--muted); font-size: 13px; }
-  .guess { font-size: 26px; font-weight: 600; margin: 2px 0 0; min-height: 39px; }
-  .conf { color: var(--muted); margin: 0 0 20px; min-height: 22px; }
+  .guess { font-size: 24px; font-weight: 600; margin: 2px 0 0; min-height: 36px; }
+  .conf { color: var(--muted); min-height: 22px; }
 
   .bars { display: grid; grid-template-columns: 150px 1fr 48px; gap: 6px 10px; align-items: center; font-size: 14px; }
   .track { height: 10px; background: #efefed; border-radius: 2px; overflow: hidden; }
@@ -66,7 +67,7 @@
 <body>
 <main>
   <h1>Doodle Region CNN</h1>
-  <p class="sub">Draw a house, power outlet, bread, mailbox, bus, car, tree, cup, chair or face. The model guesses which region you are from as you draw.</p>
+  <p class="sub">Draw a house, power outlet, bread, mailbox, bus, car, tree, cup, chair or face. As you draw, one model guesses what it is and another guesses which region you are from.</p>
 
   <div class="grid">
     <div class="panel">
@@ -78,9 +79,18 @@
     </div>
 
     <div class="panel">
-      <div class="guess-label">Predicted region</div>
-      <div class="guess" id="guess">–</div>
-      <div class="conf" id="conf">Start drawing.</div>
+      <div class="guesses">
+        <div>
+          <div class="guess-label">Looks like</div>
+          <div class="guess" id="objGuess">–</div>
+          <div class="conf" id="objConf"></div>
+        </div>
+        <div>
+          <div class="guess-label">Predicted region</div>
+          <div class="guess" id="guess">–</div>
+          <div class="conf" id="conf">Start drawing.</div>
+        </div>
+      </div>
       <div class="bars" id="bars"></div>
     </div>
   </div>
@@ -166,14 +176,29 @@ let requestId = 0;
 async function predict() {
   const all = strokes.concat(current ? [current] : []);
   const id = ++requestId;
-  if (!all.length) { show(null); return; }
+  if (!all.length) { show(null); showObject(null); return; }
   const res = await fetch("/predict", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ strokes: all }),
   });
   if (!res.ok || id !== requestId) return;
-  show((await res.json()).probs);
+  const r = await res.json();
+  show(r.probs);
+  showObject(r);
+}
+
+function showObject(r) {
+  if (!r) {
+    document.getElementById("objGuess").textContent = "–";
+    document.getElementById("objConf").textContent = "";
+    return;
+  }
+  const p = r.object_probs;
+  const top = p.indexOf(Math.max(...p));
+  const name = r.objects[top];
+  document.getElementById("objGuess").textContent = name[0].toUpperCase() + name.slice(1);
+  document.getElementById("objConf").textContent = pct(p[top]) + " confident";
 }
 
 function show(probs) {
@@ -181,7 +206,7 @@ function show(probs) {
   bars.innerHTML = "";
   const top = probs ? probs.indexOf(Math.max(...probs)) : -1;
   document.getElementById("guess").textContent = probs ? regions[top] : "–";
-  document.getElementById("conf").textContent = probs ? pct(probs[top]) + " confident" : "Start drawing.";
+  document.getElementById("conf").textContent = probs ? pct(probs[top]) + " confident" : (regions.length ? "Start drawing." : "");
   regions.forEach((name, i) => {
     const p = probs ? probs[i] : 0;
     bars.insertAdjacentHTML("beforeend",
@@ -202,6 +227,7 @@ async function loadMetrics() {
     [pct(best.accuracy), "Test accuracy (" + m.model + " CNN)"],
     [pct(best.top3), "Correct region in top 3"],
     [pct(m.chance), "Random guess"],
+    ...(m.object_accuracy != null ? [[pct(m.object_accuracy), "Object recognition accuracy"]] : []),
     [m.test_size.toLocaleString(), "Test drawings"],
   ].map(([v, k]) => `<div class="stat"><div class="v">${v}</div><div class="k">${k}</div></div>`).join("");
 

@@ -37,8 +37,9 @@ python3 -m venv .venv
 ```
 
 Open http://localhost:8340. Draw one of the 10 objects; after every stroke (and while
-drawing) the deep CNN shows its predicted region, how confident it is, and the
-probability for all 9 regions. Below that, a dashboard shows test-set accuracy for every
+drawing) the page shows what the drawing looks like (object CNN, like Quick, Draw!),
+the predicted region (deep CNN), how confident each model is, and the probability for
+all 9 regions. Below that, a dashboard shows test-set accuracy for every
 method, accuracy per region and the confusion matrix.
 
 The canvas strokes go through the same preprocessing as the Quick, Draw! data
@@ -71,6 +72,12 @@ checkpoint with the best validation accuracy is kept.
 ```bash
 .venv/bin/python -m src.train --model small --epochs 10
 .venv/bin/python -m src.train --model deep --epochs 25   # ~90 s/epoch on an M-series Mac
+```
+
+A separate small CNN recognizes **what** is drawn (10 objects), used by the UI:
+
+```bash
+.venv/bin/python -m src.train --model small --target object --epochs 8   # 97.0% test accuracy
 ```
 
 ## Results

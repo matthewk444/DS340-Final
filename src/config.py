@@ -6,8 +6,9 @@ DATA_DIR = ROOT / "data"
 RESULTS_DIR = ROOT / "results"
 
 
-def model_path(name):
-    return RESULTS_DIR / f"cnn_{name}.pt"
+def model_path(name, target="region"):
+    """Checkpoint path. Region models: cnn_<name>.pt, object models: cnn_<name>_object.pt."""
+    return RESULTS_DIR / (f"cnn_{name}.pt" if target == "region" else f"cnn_{name}_{target}.pt")
 
 
 # Objects whose drawing style plausibly differs between countries.

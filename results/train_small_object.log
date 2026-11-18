@@ -1,0 +1,10 @@
+model=small  target=object  device=mps  params=620,234  train=98208  val=12276
+epoch  1  loss 0.3739  val acc 94.62%  59s  (saved)
+epoch  2  loss 0.1855  val acc 93.11%  54s
+epoch  3  loss 0.1547  val acc 95.95%  57s  (saved)
+epoch  4  loss 0.1276  val acc 95.56%  59s
+epoch  5  loss 0.1100  val acc 96.43%  99s  (saved)
+epoch  6  loss 0.0954  val acc 96.53%  89s  (saved)
+epoch  7  loss 0.0831  val acc 96.90%  57s  (saved)
+epoch  8  loss 0.0761  val acc 96.95%  57s  (saved)
+Best val accuracy: 96.95%
