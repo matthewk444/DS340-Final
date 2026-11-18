@@ -11,6 +11,17 @@ from PIL import Image, ImageDraw
 from .config import IMG_SIZE
 
 
+def normalize(strokes):
+    """Apply Quick, Draw!'s own preprocessing to raw strokes (e.g. from the UI canvas):
+    shift so the minimum x and y are 0, then scale uniformly so the largest value is 255."""
+    xs = [x for s in strokes for x in s[0]]
+    ys = [y for s in strokes for y in s[1]]
+    x0, y0 = min(xs), min(ys)
+    span = max(max(xs) - x0, max(ys) - y0) or 1.0
+    k = 255.0 / span
+    return [[[(x - x0) * k for x in sx], [(y - y0) * k for y in sy]] for sx, sy in strokes]
+
+
 def render(strokes, size=IMG_SIZE):
     """strokes: list of [xs, ys] in 0..255. Returns uint8 array (size, size), ink = 255."""
     big = size * 4

@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Doodle Region CNN</title>
+<style>
+  :root {
+    --bg: #f7f7f6;
+    --panel: #ffffff;
+    --text: #1f1f1f;
+    --muted: #6b6b6b;
+    --line: #dedede;
+    --bar: #c9c9c6;
+    --bar-top: #3a3a3a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+  main { max-width: 960px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
+  h2 { font-size: 15px; font-weight: 600; margin: 0 0 12px; }
+  p.sub { margin: 0 0 24px; color: var(--muted); }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 20px; }
+  .grid { display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: start; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+
+  canvas {
+    display: block; width: 400px; height: 400px; max-width: 100%;
+    aspect-ratio: 1; border: 1px solid var(--line); border-radius: 4px;
+    background: #fff; touch-action: none; cursor: crosshair;
+  }
+  .buttons { display: flex; gap: 8px; margin-top: 12px; }
+  button {
+    font: inherit; padding: 6px 14px; border: 1px solid var(--line); border-radius: 4px;
+    background: #fff; color: var(--text); cursor: pointer;
+  }
+  button:hover { background: #f0f0ef; }
+
+  .guess-label { color: var(--muted); font-size: 13px; }
+  .guess { font-size: 26px; font-weight: 600; margin: 2px 0 0; min-height: 39px; }
+  .conf { color: var(--muted); margin: 0 0 20px; min-height: 22px; }
+
+  .bars { display: grid; grid-template-columns: 150px 1fr 48px; gap: 6px 10px; align-items: center; font-size: 14px; }
+  .track { height: 10px; background: #efefed; border-radius: 2px; overflow: hidden; }
+  .fill { height: 100%; width: 0; background: var(--bar); transition: width 0.15s; }
+  .fill.top { background: var(--bar-top); }
+  .pct { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .stat { border: 1px solid var(--line); border-radius: 4px; padding: 12px; }
+  .stat .v { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .stat .k { color: var(--muted); font-size: 13px; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  th { font-weight: 600; color: var(--muted); }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .cm { max-width: 100%; height: auto; border: 1px solid var(--line); border-radius: 4px; }
+  .note { color: var(--muted); font-size: 13px; margin-top: 12px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Doodle Region CNN</h1>
+  <p class="sub">Draw a house, power outlet, bread, mailbox, bus, car, tree, cup, chair or face. The model guesses which region you are from as you draw.</p>
+
+  <div class="grid">
+    <div class="panel">
+      <canvas id="pad" width="800" height="800"></canvas>
+      <div class="buttons">
+        <button id="undo">Undo</button>
+        <button id="clear">Clear</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="guess-label">Predicted region</div>
+      <div class="guess" id="guess">–</div>
+      <div class="conf" id="conf">Start drawing.</div>
+      <div class="bars" id="bars"></div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-top:16px">
+    <h2>Model</h2>
+    <div class="stats" id="stats"></div>
+    <div class="grid" style="grid-template-columns: 1fr 1fr">
+      <div>
+        <table id="methods"></table>
+        <table id="perRegion" style="margin-top:20px"></table>
+      </div>
+      <div>
+        <img class="cm" src="/confusion_matrix.png" alt="Confusion matrix of the CNN on the test set">
+      </div>
+    </div>
+    <p class="note" id="note"></p>
+  </div>
+</main>
+
+<script>
+const pad = document.getElementById("pad");
+const ctx = pad.getContext("2d");
+const strokes = [];   // [[xs, ys], ...]
+let current = null;
+let regions = [];
+
+function pct(x) { return (x * 100).toFixed(1) + "%"; }
+
+// ---- drawing ----
+function redraw() {
+  ctx.clearRect(0, 0, pad.width, pad.height);
+  ctx.lineWidth = 6; ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.strokeStyle = "#1f1f1f";
+  for (const [xs, ys] of strokes.concat(current ? [current] : [])) {
+    ctx.beginPath();
+    ctx.moveTo(xs[0], ys[0]);
+    for (let i = 1; i < xs.length; i++) ctx.lineTo(xs[i], ys[i]);
+    if (xs.length === 1) ctx.lineTo(xs[0] + 0.1, ys[0]);
+    ctx.stroke();
+  }
+}
+
+function point(e) {
+  const r = pad.getBoundingClientRect();
+  return [(e.clientX - r.left) * pad.width / r.width, (e.clientY - r.top) * pad.height / r.height];
+}
+
+pad.addEventListener("pointerdown", e => {
+  pad.setPointerCapture(e.pointerId);
+  const [x, y] = point(e);
+  current = [[x], [y]];
+  redraw();
+});
+pad.addEventListener("pointermove", e => {
+  if (!current) return;
+  const [x, y] = point(e);
+  const n = current[0].length - 1;
+  if (Math.hypot(x - current[0][n], y - current[1][n]) < 3) return;
+  current[0].push(x); current[1].push(y);
+  redraw();
+  schedulePredict();
+});
+function endStroke() {
+  if (!current) return;
+  strokes.push(current);
+  current = null;
+  predict();
+}
+pad.addEventListener("pointerup", endStroke);
+pad.addEventListener("pointercancel", endStroke);
+
+document.getElementById("undo").onclick = () => { strokes.pop(); redraw(); predict(); };
+document.getElementById("clear").onclick = () => { strokes.length = 0; redraw(); predict(); };
+
+// ---- prediction (updates while drawing, at most every 150 ms) ----
+let timer = null;
+function schedulePredict() {
+  if (timer) return;
+  timer = setTimeout(() => { timer = null; predict(); }, 150);
+}
+
+let requestId = 0;
+async function predict() {
+  const all = strokes.concat(current ? [current] : []);
+  const id = ++requestId;
+  if (!all.length) { show(null); return; }
+  const res = await fetch("/predict", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ strokes: all }),
+  });
+  if (!res.ok || id !== requestId) return;
+  show((await res.json()).probs);
+}
+
+function show(probs) {
+  const bars = document.getElementById("bars");
+  bars.innerHTML = "";
+  const top = probs ? probs.indexOf(Math.max(...probs)) : -1;
+  document.getElementById("guess").textContent = probs ? regions[top] : "–";
+  document.getElementById("conf").textContent = probs ? pct(probs[top]) + " confident" : "Start drawing.";
+  regions.forEach((name, i) => {
+    const p = probs ? probs[i] : 0;
+    bars.insertAdjacentHTML("beforeend",
+      `<div>${name}</div>
+       <div class="track"><div class="fill${i === top ? " top" : ""}" style="width:${p * 100}%"></div></div>
+       <div class="pct">${probs ? pct(p) : ""}</div>`);
+  });
+}
+
+// ---- dashboard ----
+async function loadMetrics() {
+  const m = await (await fetch("/metrics")).json();
+  regions = m.regions;
+  show(null);
+  const best = m.cnn[m.model];
+
+  document.getElementById("stats").innerHTML = [
+    [pct(best.accuracy), "Test accuracy (" + m.model + " CNN)"],
+    [pct(best.top3), "Correct region in top 3"],
+    [pct(m.chance), "Random guess"],
+    [m.test_size.toLocaleString(), "Test drawings"],
+  ].map(([v, k]) => `<div class="stat"><div class="v">${v}</div><div class="k">${k}</div></div>`).join("");
+
+  const rows = [
+    ["Always guess one region", m.majority_class],
+    ["Logistic regression", m.logistic_regression],
+    ...Object.entries(m.cnn).map(([n, c]) => [n[0].toUpperCase() + n.slice(1) + " CNN", c.accuracy]),
+  ];
+  document.getElementById("methods").innerHTML =
+    `<tr><th>Method</th><th class="num">Accuracy</th></tr>` +
+    rows.map(([n, a]) => `<tr><td>${n}</td><td class="num">${pct(a)}</td></tr>`).join("");
+
+  document.getElementById("perRegion").innerHTML =
+    `<tr><th>Region</th><th class="num">Accuracy</th></tr>` +
+    m.regions.map(r => `<tr><td>${r}</td><td class="num">${pct(best.per_region[r])}</td></tr>`).join("");
+
+  document.getElementById("note").textContent =
+    `Accuracy is measured on ${m.test_size.toLocaleString()} drawings the model never saw, with equal numbers from each region. ` +
+    `The confusion matrix shows, for each true region (row), how often the model predicted each region (column).`;
+}
+loadMetrics();
+</script>
+</body>
+</html>

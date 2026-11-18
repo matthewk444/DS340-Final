@@ -10,7 +10,8 @@ which tags every drawing with the artist's country.
 
 - [x] **Part 1** — data: download, map countries to regions, balance, render, split
 - [x] **Part 2** — train an initial CNN, compare with simple baselines
-- [ ] **Part 3** — partial drawings, compare training approaches, drawing interface
+- [x] Drawing UI + model dashboard (simple version)
+- [ ] **Part 3** — partial drawings, compare training approaches
 - [ ] Paper, lightning talk, demo
 
 ## Setup
@@ -28,6 +29,21 @@ python3 -m venv .venv
 .venv/bin/python -m src.train      # train the CNN (Apple GPU if available)
 .venv/bin/python -m src.evaluate   # test accuracy vs. baselines -> results/
 ```
+
+## Drawing UI
+
+```bash
+.venv/bin/python -m uvicorn app.server:app --port 8340
+```
+
+Open http://localhost:8340. Draw one of the 10 objects; after every stroke (and while
+drawing) the deep CNN shows its predicted region, how confident it is, and the
+probability for all 9 regions. Below that, a dashboard shows test-set accuracy for every
+method, accuracy per region and the confusion matrix.
+
+The canvas strokes go through the same preprocessing as the Quick, Draw! data
+(`normalize` in `src/render.py`: shift to the top-left corner, scale to 0–255), then the
+same `render` function used in training.
 
 ## Data
 
@@ -75,6 +91,8 @@ See [`results/RESULTS.md`](results/RESULTS.md) for the full tables and
 | `src/model.py` | CNN |
 | `src/train.py` | Training loop |
 | `src/evaluate.py` | Baselines, test metrics, confusion matrix |
+| `app/server.py` | FastAPI: page, `/predict`, `/metrics` |
+| `app/index.html` | Canvas, live prediction, dashboard (plain HTML/CSS/JS) |
 
 ## Code sources
 
