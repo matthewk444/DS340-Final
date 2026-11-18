@@ -1,0 +1,12 @@
+device=mps  params=619,977  train=98208  val=12276
+epoch  1  loss 2.1936  val acc 13.55%  122s  (saved)
+epoch  2  loss 2.1801  val acc 14.67%  68s  (saved)
+epoch  3  loss 2.1746  val acc 14.52%  68s
+epoch  4  loss 2.1718  val acc 14.59%  67s
+epoch  5  loss 2.1682  val acc 14.65%  56s
+epoch  6  loss 2.1651  val acc 15.80%  53s  (saved)
+epoch  7  loss 2.1610  val acc 16.09%  54s  (saved)
+epoch  8  loss 2.1579  val acc 16.54%  54s  (saved)
+epoch  9  loss 2.1534  val acc 16.62%  58s  (saved)
+epoch 10  loss 2.1510  val acc 16.80%  58s  (saved)
+Best val accuracy: 16.80%
