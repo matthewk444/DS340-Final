@@ -6,41 +6,41 @@ Test set: 12,276 drawings not seen in training, balanced over 9 regions (chance 
 |---|---|---|
 | Always guess most common region | 11.1% | |
 | Logistic regression (28x28 pixels) | 13.7% | |
-| small CNN | 16.7% | 44.8% |
-| deep CNN | 18.2% | 46.4% |
+| small CNN | 15.5% | 41.0% |
+| deep CNN | 17.0% | 44.3% |
 
 ## CNN accuracy by true region
 
 | Region | small CNN | deep CNN |
 |---|---|---|
-| North America | 26.7% | 34.3% |
-| Latin America | 11.0% | 6.3% |
-| Western Europe | 5.1% | 2.7% |
-| Eastern Europe | 33.4% | 33.4% |
-| Middle East & Africa | 2.9% | 6.8% |
-| South Asia | 22.9% | 18.8% |
-| East Asia | 40.4% | 48.2% |
-| Southeast Asia | 0.9% | 6.9% |
-| Oceania | 7.3% | 5.9% |
+| North America | 17.1% | 37.9% |
+| Latin America | 8.7% | 5.7% |
+| Western Europe | 5.6% | 0.3% |
+| Eastern Europe | 28.8% | 28.7% |
+| Middle East & Africa | 4.6% | 6.1% |
+| South Asia | 26.0% | 32.3% |
+| East Asia | 41.1% | 34.2% |
+| Southeast Asia | 1.8% | 1.5% |
+| Oceania | 5.9% | 5.8% |
 
 ## CNN accuracy by object
 
 | Object | small CNN | deep CNN |
 |---|---|---|
-| power outlet | 18.5% | 21.8% |
-| house | 16.0% | 19.9% |
-| tree | 16.7% | 19.8% |
-| chair | 18.3% | 18.8% |
-| bus | 16.8% | 18.2% |
-| cup | 17.7% | 17.5% |
-| bread | 15.5% | 16.7% |
-| face | 13.9% | 16.7% |
-| car | 16.7% | 16.5% |
-| mailbox | 16.9% | 15.9% |
+| power outlet | 18.8% | 20.9% |
+| tree | 15.4% | 19.5% |
+| chair | 17.7% | 17.7% |
+| cup | 15.2% | 17.5% |
+| car | 15.0% | 16.6% |
+| house | 15.7% | 16.4% |
+| face | 13.0% | 15.6% |
+| bread | 15.2% | 15.6% |
+| bus | 15.5% | 15.0% |
+| mailbox | 13.1% | 14.4% |
 
 
 ## Object recognition (small CNN, what is drawn)
 
-Test accuracy: **97.0%** over 10 objects (chance = 10%).
+Test accuracy: **93.0%** over 10 objects (chance = 10%).
 
 Confusion matrix (deep CNN): `confusion_matrix.png`. Example drawings: `samples.png`.

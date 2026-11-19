@@ -1,10 +1,24 @@
-model=small  target=object  device=mps  params=620,234  train=98208  val=12276
-epoch  1  loss 0.3739  val acc 94.62%  59s  (saved)
-epoch  2  loss 0.1855  val acc 93.11%  54s
-epoch  3  loss 0.1547  val acc 95.95%  57s  (saved)
-epoch  4  loss 0.1276  val acc 95.56%  59s
-epoch  5  loss 0.1100  val acc 96.43%  99s  (saved)
-epoch  6  loss 0.0954  val acc 96.53%  89s  (saved)
-epoch  7  loss 0.0831  val acc 96.90%  57s  (saved)
-epoch  8  loss 0.0761  val acc 96.95%  57s  (saved)
-Best val accuracy: 96.95%
+model=small  target=object  device=mps  params=3,705,930
+Epoch: 1
+Training loss: 0.6577  Training accuracy: 78.58 %
+Validation loss: 0.2651  Validation accuracy: 91.5 %
+Epoch: 2
+Training loss: 0.4081  Training accuracy: 86.75 %
+Validation loss: 0.232  Validation accuracy: 92.52 %
+Epoch: 3
+Training loss: 0.3331  Training accuracy: 89.02 %
+Validation loss: 0.2156  Validation accuracy: 93.24 %
+Epoch: 4
+Training loss: 0.2855  Training accuracy: 90.43 %
+Validation loss: 0.2153  Validation accuracy: 93.36 %
+Epoch: 5
+Training loss: 0.2452  Training accuracy: 91.54 %
+Validation loss: 0.218  Validation accuracy: 93.27 %
+Epoch: 6
+Training loss: 0.224  Training accuracy: 92.24 %
+Validation loss: 0.2192  Validation accuracy: 93.4 %
+Epoch: 7
+Training loss: 0.1982  Training accuracy: 93.05 %
+Validation loss: 0.2449  Validation accuracy: 93.31 %
+Early stopping
+Highest validation accuracy: 93.4 %

@@ -1,0 +1,8 @@
+Fitting logistic regression on 40000 drawings ...
+| Method | Region accuracy | Top-3 |
+|---|---|---|
+| Always guess most common region | 11.1% | |
+| Logistic regression (28x28 pixels) | 13.7% | |
+| small CNN | 15.5% | 41.0% |
+| deep CNN | 17.0% | 44.3% |
+
