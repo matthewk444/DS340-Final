@@ -22,7 +22,9 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import confusion_matrix
 
 from .config import CATEGORIES, RESULTS_DIR, SEED, model_path
-from .data import batches, load
+from torch.utils.data import DataLoader
+
+from .data import load, to_tensors
 from .model import MODELS
 from .regions import REGIONS
 from .train import device
@@ -41,19 +43,23 @@ def small_pixels(images, idx):
 
 @torch.no_grad()
 def cnn_predict(name, images, labels, idx, target="region"):
-    dev = device()
+    dev = device
     n_classes = len(REGIONS) if target == "region" else len(CATEGORIES)
+    checkpoint = torch.load(model_path(name, target), map_location=dev)
     model = MODELS[name](n_classes).to(dev)
-    model.load_state_dict(torch.load(model_path(name, target), map_location=dev))
+    model.load_state_dict(checkpoint["model"])
     model.eval()
+    X, _ = to_tensors(images, labels, idx)
+    X = (X - checkpoint["mean"]) / checkpoint["std"]  # same normalization as in training
     probs = []
-    for x, _ in batches(images, labels, idx, 512):
-        probs.append(torch.softmax(model(x.to(dev)), 1).cpu().numpy())
+    for data in DataLoader(X, batch_size=512):
+        probs.append(torch.softmax(model(data.to(dev)), 1).cpu().numpy())
     return np.concatenate(probs)
 
 
 def cnn_metrics(probs, y_test, obj_test):
     pred = probs.argmax(1)
+    # top3: the true region is among the model's 3 most likely guesses
     return {
         "accuracy": float((pred == y_test).mean()),
         "top3": float((np.argsort(-probs, 1)[:, :3] == y_test[:, None]).any(1).mean()),
@@ -88,9 +94,11 @@ def main():
     train, test = meta["train"], meta["test"]  # already sorted, so batch order == idx order
     y_test, obj_test = y[test], obj[test]
 
+    # Baseline 1: always guess the region that is most common in the training data
     majority = np.bincount(y[train]).argmax()
     acc_major = float((y_test == majority).mean())
 
+    # Baseline 2: logistic regression on the raw pixels (no convolutions)
     rng = np.random.default_rng(SEED)
     lr_idx = np.sort(rng.choice(train, min(LOGREG_TRAIN, len(train)), replace=False))
     print(f"Fitting logistic regression on {len(lr_idx)} drawings ...", flush=True)
@@ -98,6 +106,7 @@ def main():
     logreg.fit(small_pixels(images, lr_idx), y[lr_idx])
     acc_logreg = float((logreg.predict(small_pixels(images, test)) == y_test).mean())
 
+    # Every trained region CNN, scored on the test set; the best one gets the confusion matrix
     cnns = {name: cnn_metrics(cnn_predict(name, images, y, test), y_test, obj_test)
             for name in MODELS if model_path(name).exists()}
     best = max(cnns, key=lambda n: cnns[n]["accuracy"])
@@ -128,6 +137,7 @@ def main():
             f"Test accuracy: **{metrics['object_cnn']['accuracy']:.1%}** "
             f"over {len(CATEGORIES)} objects (chance = {1 / len(CATEGORIES):.0%}).",
         ]
+    # metrics.json feeds the dashboard; RESULTS.md below is the readable version
     (RESULTS_DIR / "metrics.json").write_text(json.dumps(metrics, indent=2))
 
     names = list(cnns)

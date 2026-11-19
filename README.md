@@ -58,26 +58,31 @@ same `render` function used in training.
 
 ## Model
 
-Two CNNs in `src/model.py` (input: 64×64 grayscale image, output: 9 regions):
+Two CNNs in `src/model.py`, written the way we wrote CNNs in class (input: 64×64
+grayscale image, output: 9 regions). All convs are 3×3 without padding, followed by
+ReLU; pooling is 2×2 max pooling.
 
-| Model | Layers | Filters | Params |
-|---|---|---|---|
-| `small` | 3 conv blocks, 1 conv each | 32, 64, 128 | 0.6M |
-| `deep` | 4 conv blocks, 2 convs each after the first (7 convs) | 32, 64, 128, 256 | 2.2M |
+| Model | Layers | Params |
+|---|---|---|
+| `small` | the MNIST network from lecture: conv(32) → conv(64) → pool → fc(64) → dropout → fc | 3.7M |
+| `deep` | 4 conv → pool blocks, doubling the feature maps (32, 64, 128, 256) → fc(64) → dropout → fc | 0.45M |
 
-Each block is conv → batch norm → ReLU (repeated) → max pool. Both end in a 256-unit
-layer with dropout 0.4. Trained with Adam and a cosine learning-rate schedule; the
-checkpoint with the best validation accuracy is kept.
+Training (`src/train.py`) follows the class loop: images normalized with the training
+mean and std, `TensorDataset` + `DataLoader` (batch 64), Adam (lr 0.001) with
+cross-entropy loss, training and validation loss and accuracy printed every epoch, early
+stopping on validation loss (patience 3, max 15 epochs). The model with the lowest
+validation loss is kept, and the training and validation loss curves are saved to
+`results/loss_<model>_<target>.png`.
 
 ```bash
-.venv/bin/python -m src.train --model small --epochs 10
-.venv/bin/python -m src.train --model deep --epochs 25   # ~90 s/epoch on an M-series Mac
+.venv/bin/python -m src.train --model small
+.venv/bin/python -m src.train --model deep
 ```
 
 A separate small CNN recognizes **what** is drawn (10 objects), used by the UI:
 
 ```bash
-.venv/bin/python -m src.train --model small --target object --epochs 8   # 97.0% test accuracy
+.venv/bin/python -m src.train --model small --target object
 ```
 
 ## Results
@@ -94,7 +99,7 @@ See [`results/RESULTS.md`](results/RESULTS.md) for the full tables and
 | `src/download.py` | Stream NDJSON, reservoir-sample per region |
 | `src/render.py` | Strokes → 64×64 image (single source of truth) |
 | `src/prepare.py` | Balance, render, split, sample grid |
-| `src/data.py` | Batches from the memory-mapped image file |
+| `src/data.py` | Tensors, normalization, DataLoaders |
 | `src/model.py` | CNN |
 | `src/train.py` | Training loop |
 | `src/evaluate.py` | Baselines, test metrics, confusion matrix |

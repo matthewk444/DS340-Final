@@ -22,13 +22,15 @@ MODEL_NAME = "deep"  # region model shown on the page
 
 
 def load_model(name, target, n_classes):
+    """Returns the model and the (mean, std) it was trained with."""
+    checkpoint = torch.load(model_path(name, target), map_location="cpu")
     m = MODELS[name](n_classes)
-    m.load_state_dict(torch.load(model_path(name, target), map_location="cpu"))
-    return m.eval()
+    m.load_state_dict(checkpoint["model"])
+    return m.eval(), (checkpoint["mean"], checkpoint["std"])
 
 
-region_model = load_model(MODEL_NAME, "region", len(REGIONS))       # where the drawer is from
-object_model = load_model("small", "object", len(CATEGORIES))       # what is drawn
+region_model, region_norm = load_model(MODEL_NAME, "region", len(REGIONS))       # where the drawer is from
+object_model, object_norm = load_model("small", "object", len(CATEGORIES))       # what is drawn
 
 app = FastAPI()
 HERE = Path(__file__).parent
@@ -70,10 +72,13 @@ def predict(d: Drawing):
     strokes = [s for s in d.strokes if len(s) == 2 and len(s[0]) > 0]
     if not strokes:
         raise HTTPException(400, "empty drawing")
+    # Same preprocessing as the training data: Quick, Draw! normalization, then a 64x64 image
     img = render(normalize(strokes))
-    x = torch.from_numpy(img).float().div(255).view(1, 1, *img.shape)
+    x = torch.from_numpy(img).float().view(1, 1, *img.shape)
     with torch.no_grad():
-        region_probs = torch.softmax(region_model(x), 1)[0].tolist()
-        object_probs = torch.softmax(object_model(x), 1)[0].tolist()
+        mean, std = region_norm
+        region_probs = torch.softmax(region_model((x - mean) / std), 1)[0].tolist()
+        mean, std = object_norm
+        object_probs = torch.softmax(object_model((x - mean) / std), 1)[0].tolist()
     return {"regions": REGIONS, "probs": region_probs,
             "objects": CATEGORIES, "object_probs": object_probs}
