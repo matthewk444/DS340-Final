@@ -45,11 +45,6 @@ def index():
     return FileResponse(HERE / "index.html")
 
 
-@app.get("/confusion_matrix.png")
-def confusion_png():
-    return FileResponse(RESULTS_DIR / "confusion_matrix.png")
-
-
 @app.get("/metrics")
 def metrics():
     """Test-set results, trimmed to what the dashboard shows."""

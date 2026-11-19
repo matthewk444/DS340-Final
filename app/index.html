@@ -23,7 +23,6 @@
   }
   main { max-width: 960px; margin: 0 auto; padding: 32px 16px 64px; }
   h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
-  h2 { font-size: 15px; font-weight: 600; margin: 0 0 12px; }
   p.sub { margin: 0 0 24px; color: var(--muted); }
   .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 20px; }
   .grid { display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: start; }
@@ -52,16 +51,6 @@
   .fill.top { background: var(--bar-top); }
   .pct { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
 
-  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 20px; }
-  .stat { border: 1px solid var(--line); border-radius: 4px; padding: 12px; }
-  .stat .v { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
-  .stat .k { color: var(--muted); font-size: 13px; }
-  table { border-collapse: collapse; width: 100%; font-size: 14px; }
-  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }
-  th { font-weight: 600; color: var(--muted); }
-  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
-  .cm { max-width: 100%; height: auto; border: 1px solid var(--line); border-radius: 4px; }
-  .note { color: var(--muted); font-size: 13px; margin-top: 12px; }
 </style>
 </head>
 <body>
@@ -93,21 +82,6 @@
       </div>
       <div class="bars" id="bars"></div>
     </div>
-  </div>
-
-  <div class="panel" style="margin-top:16px">
-    <h2>Model</h2>
-    <div class="stats" id="stats"></div>
-    <div class="grid" style="grid-template-columns: 1fr 1fr">
-      <div>
-        <table id="methods"></table>
-        <table id="perRegion" style="margin-top:20px"></table>
-      </div>
-      <div>
-        <img class="cm" src="/confusion_matrix.png" alt="Confusion matrix of the CNN on the test set">
-      </div>
-    </div>
-    <p class="note" id="note"></p>
   </div>
 </main>
 
@@ -216,39 +190,13 @@ function show(probs) {
   });
 }
 
-// ---- dashboard ----
-async function loadMetrics() {
+// ---- region names for the bars ----
+async function loadRegions() {
   const m = await (await fetch("/metrics")).json();
   regions = m.regions;
   show(null);
-  const best = m.cnn[m.model];
-
-  document.getElementById("stats").innerHTML = [
-    [pct(best.accuracy), "Test accuracy (" + m.model + " CNN)"],
-    [pct(best.top3), "Correct region in top 3"],
-    [pct(m.chance), "Random guess"],
-    ...(m.object_accuracy != null ? [[pct(m.object_accuracy), "Object recognition accuracy"]] : []),
-    [m.test_size.toLocaleString(), "Test drawings"],
-  ].map(([v, k]) => `<div class="stat"><div class="v">${v}</div><div class="k">${k}</div></div>`).join("");
-
-  const rows = [
-    ["Always guess one region", m.majority_class],
-    ["Logistic regression", m.logistic_regression],
-    ...Object.entries(m.cnn).map(([n, c]) => [n[0].toUpperCase() + n.slice(1) + " CNN", c.accuracy]),
-  ];
-  document.getElementById("methods").innerHTML =
-    `<tr><th>Method</th><th class="num">Accuracy</th></tr>` +
-    rows.map(([n, a]) => `<tr><td>${n}</td><td class="num">${pct(a)}</td></tr>`).join("");
-
-  document.getElementById("perRegion").innerHTML =
-    `<tr><th>Region</th><th class="num">Accuracy</th></tr>` +
-    m.regions.map(r => `<tr><td>${r}</td><td class="num">${pct(best.per_region[r])}</td></tr>`).join("");
-
-  document.getElementById("note").textContent =
-    `Accuracy is measured on ${m.test_size.toLocaleString()} drawings the model never saw, with equal numbers from each region. ` +
-    `The confusion matrix shows, for each true region (row), how often the model predicted each region (column).`;
 }
-loadMetrics();
+loadRegions();
 </script>
 </body>
 </html>
